@@ -212,8 +212,8 @@ export default function DashboardPage() {
                                                 </div>
                                                 {data.areas.length > 0 && (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
-                                                        {data.areas.map((area) => (
-                                                            <div key={area.code} className="flex justify-between items-center text-sm">
+                                                        {data.areas.map((area, index) => (
+                                                            <div key={`${area.code}-${index}`} className="flex justify-between items-center text-sm">
                                                                 <span className="text-muted-foreground">{area.name}</span>
                                                                 <span>{area.count} løyver</span>
                                                             </div>

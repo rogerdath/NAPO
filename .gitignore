@@ -35,7 +35,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# output files
+# project specific
 /output/
 /logs/
 /raw/
+/uploads/
+.cursorrules

@@ -8,7 +8,12 @@ export async function saveFile(fileName: string, content: string) {
     
     try {
         await fs.mkdir(outputDir, { recursive: true });
-        await fs.writeFile(path.join(outputDir, fileName), content);
+        if (fileName.toLowerCase().endsWith('.csv')) {
+            const bom = '\ufeff';
+            await fs.writeFile(path.join(outputDir, fileName), bom + content, 'utf8');
+        } else {
+            await fs.writeFile(path.join(outputDir, fileName), content, 'utf8');
+        }
     } catch (error) {
         console.error('Error saving file:', error);
         throw error;
@@ -19,7 +24,7 @@ export async function readFile(fileName: string) {
     try {
         const filePath = path.join(process.cwd(), 'output', fileName);
         const content = await fs.readFile(filePath, 'utf8');
-        return content;
+        return content.charCodeAt(0) === 0xFEFF ? content.slice(1) : content;
     } catch (error) {
         console.error('Error reading file:', error);
         throw error;
@@ -51,5 +56,5 @@ export async function loadHistory() {
 
 export async function saveHistory(history: any[]) {
     const historyPath = path.join(process.cwd(), 'output', 'export_history.json');
-    await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
+    await fs.writeFile(historyPath, JSON.stringify(history, null, 2), 'utf8');
 } 

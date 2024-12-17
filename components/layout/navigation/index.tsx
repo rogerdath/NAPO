@@ -1,7 +1,8 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
-import { FileText, History, Settings, BarChart } from "lucide-react";
+import { FileText, History, Settings, BarChart, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
@@ -14,17 +15,22 @@ const navigation = [
     {
         href: "/transform",
         icon: FileText,
-        label: "Import",
+        label: "Transform",
+    },
+    {
+        href: "/avtaler",
+        icon: Database,
+        label: "Contract Manager",
     },
     {
         href: "/history",
         icon: History,
-        label: "Historikk",
+        label: "History",
     },
     {
         href: "/settings",
         icon: Settings,
-        label: "Innstillinger",
+        label: "Settings",
     },
 ];
 
@@ -32,11 +38,11 @@ export function Navigation() {
     const pathname = usePathname();
 
     return (
-        <aside className="fixed inset-y-0 left-0 w-64 bg-brand-primary border-r border-brand-secondary/20">
-            <div className="flex h-14 items-center border-b border-brand-secondary/20 px-6">
+        <aside className="fixed inset-y-0 left-0 w-64 bg-zinc-900 border-r border-indigo-500/20">
+            <div className="flex h-14 items-center border-b border-indigo-500/20 px-6">
                 <Link className="flex items-center space-x-2" href="/">
-                    <span className="font-bold text-xl text-brand-secondary">
-                        AvtaleOversikt
+                    <span className="font-bold text-xl bg-gradient-to-r from-indigo-500 to-indigo-300 bg-clip-text text-transparent">
+                        CSV Transform
                     </span>
                 </Link>
             </div>
@@ -51,11 +57,11 @@ export function Navigation() {
                             className={cn(
                                 "flex items-center space-x-2 rounded-lg px-3 py-2 text-sm transition-colors",
                                 isActive
-                                    ? "bg-brand-secondary/20 text-brand-secondary"
-                                    : "text-brand-gray-light hover:text-brand-secondary hover:bg-brand-secondary/10"
+                                    ? "bg-indigo-500/10 text-indigo-500"
+                                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50"
                             )}
                         >
-                            <item.icon className={cn("h-5 w-5", isActive ? "text-brand-secondary" : "text-brand-gray-light")} />
+                            <item.icon className={cn("h-5 w-5", isActive ? "text-indigo-500" : "text-zinc-400")} />
                             <span>{item.label}</span>
                         </Link>
                     );
@@ -63,4 +69,4 @@ export function Navigation() {
             </nav>
         </aside>
     );
-} 
+}

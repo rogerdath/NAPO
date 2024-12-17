@@ -1,26 +1,23 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+"use client";
+
 import "./globals.css";
+import { scala, calibri } from './fonts';
 import { cn } from "@/lib/utils";
 import { Navigation } from "@/components/layout/navigation";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-    title: "CSV Transform - Data Transformation Tool",
-    description: "Transform CSV data to JSON with customizable field selection and formatting",
-};
-
 export default function RootLayout({
     children,
-}: Readonly<{
+}: {
     children: React.ReactNode;
-}>) {
+}) {
     return (
-        <html lang="nb" suppressHydrationWarning>
-            <body className={cn("min-h-screen font-sans antialiased", inter.className)}>
+        <html lang="nb" className={`${scala.variable} ${calibri.variable}`} suppressHydrationWarning>
+            <head>
+                <meta charSet="utf-8" />
+            </head>
+            <body className={cn("min-h-screen font-sans antialiased")}>
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="system"
