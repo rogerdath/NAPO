@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Edit as EditIcon, Save, X, FileJson } from "lucide-react";
+import { Search, Filter, Edit as EditIcon, Save, X, FileJson, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { error, info } from '@/app/lib/client-logger';
-import { searchContracts, initDB, storeContracts, getDatabaseInfo, clearDatabase } from '@/app/lib/db';
+import { searchContracts, initDB, storeContracts, getDatabaseInfo, clearDatabase, getContractRelatedData } from '@/app/lib/db';
 import { useLanguage } from '@/components/theme/language-provider';
 import { t } from '@/app/lib/i18n';
 import { scala } from '@/app/fonts';
@@ -20,11 +20,25 @@ interface ContractManagerProps {
     initialContracts: Contract[];
 }
 
+interface EditableContract extends Contract {
+    isEditing?: boolean;
+    isExpanded?: boolean;
+    editedValues?: Partial<Contract>;
+    relatedData?: {
+        area?: any;
+        contractType?: any;
+        resources?: any[];
+        location?: any;
+        contractContent?: any;
+        isLoading?: boolean;
+    };
+}
+
 export function ContractManager({ initialContracts }: ContractManagerProps) {
     const { language } = useLanguage();
     const [isInitializing, setIsInitializing] = useState(true);
-    const [contracts, setContracts] = useState<Contract[]>([]);
-    const [filteredContracts, setFilteredContracts] = useState<Contract[]>([]);
+    const [contracts, setContracts] = useState<EditableContract[]>([]);
+    const [filteredContracts, setFilteredContracts] = useState<EditableContract[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
         avtaleKontor: "all",
@@ -147,6 +161,108 @@ export function ContractManager({ initialContracts }: ContractManagerProps) {
             refreshDbInfo();
         }
     }, [showDebug]);
+
+    // Function to toggle row expansion
+    const toggleRowExpansion = async (contractId: string) => {
+        const contract = filteredContracts.find(c => c.id === contractId);
+        if (!contract) return;
+
+        // If already expanded, just collapse
+        if (contract.isExpanded) {
+            setFilteredContracts(prev => prev.map(c => 
+                c.id === contractId ? { ...c, isExpanded: false } : c
+            ));
+            return;
+        }
+
+        // Set loading state
+        setFilteredContracts(prev => prev.map(c => 
+            c.id === contractId ? {
+                ...c,
+                isExpanded: true,
+                relatedData: { isLoading: true }
+            } : c
+        ));
+
+        try {
+            // Fetch related data
+            const relatedData = await getContractRelatedData(contract.omradeKode);
+            
+            // Update contract with related data
+            setFilteredContracts(prev => prev.map(c => 
+                c.id === contractId ? {
+                    ...c,
+                    isExpanded: true,
+                    relatedData: {
+                        ...relatedData,
+                        isLoading: false
+                    }
+                } : c
+            ));
+        } catch (err) {
+            await error('ContractManager', 'Failed to load related data', err);
+            // Reset expansion on error
+            setFilteredContracts(prev => prev.map(c => 
+                c.id === contractId ? { ...c, isExpanded: false } : c
+            ));
+        }
+    };
+
+    // Function to toggle edit mode
+    const toggleEditMode = (contractId: string) => {
+        setFilteredContracts(prev => prev.map(contract => 
+            contract.id === contractId 
+                ? { 
+                    ...contract, 
+                    isEditing: !contract.isEditing,
+                    editedValues: contract.isEditing ? undefined : { ...contract }
+                }
+                : contract
+        ));
+    };
+
+    // Function to save edited values
+    const saveEditedValues = async (contractId: string) => {
+        const contract = filteredContracts.find(c => c.id === contractId);
+        if (!contract?.editedValues) return;
+
+        try {
+            await storeContract({
+                ...contract,
+                ...contract.editedValues
+            });
+            
+            setFilteredContracts(prev => prev.map(c => 
+                c.id === contractId 
+                    ? { 
+                        ...c, 
+                        ...contract.editedValues,
+                        isEditing: false,
+                        editedValues: undefined
+                    }
+                    : c
+            ));
+
+            await info('ContractManager', 'Contract updated successfully');
+        } catch (err) {
+            await error('ContractManager', 'Failed to update contract', err);
+        }
+    };
+
+    // Function to handle value changes
+    const handleValueChange = (contractId: string, field: keyof Contract, value: any) => {
+        setFilteredContracts(prev => prev.map(contract => 
+            contract.id === contractId 
+                ? { 
+                    ...contract,
+                    editedValues: {
+                        ...contract.editedValues,
+                        [field]: value
+                    }
+                }
+                : contract
+        ));
+    };
 
     if (isInitializing) {
         return (
@@ -323,30 +439,202 @@ export function ContractManager({ initialContracts }: ContractManagerProps) {
                                             </TableRow>
                                         ) : (
                                             filteredContracts.map((contract, index) => (
-                                                <TableRow key={contract.id || index}>
-                                                    <TableCell>{contract.id}</TableCell>
-                                                    <TableCell>{contract.avtaleKontor || '-'}</TableCell>
-                                                    <TableCell>{contract.avtaleNavn || '-'}</TableCell>
-                                                    <TableCell>{contract.type || '-'}</TableCell>
-                                                    <TableCell>{contract.validTransport || '-'}</TableCell>
-                                                    <TableCell>
-                                                        {contract.startLocation ? (
-                                                            <>
-                                                                {contract.startLocation.city} ({contract.startLocation.postalCode})
-                                                            </>
-                                                        ) : '-'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => setSelectedContract(contract)}
-                                                            title={t('common.edit', language)}
-                                                        >
-                                                            <EditIcon className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
+                                                <>
+                                                    <TableRow key={contract.id || index} className={contract.isEditing ? 'bg-muted/50' : ''}>
+                                                        <TableCell className="w-4">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => toggleRowExpansion(contract.id)}
+                                                            >
+                                                                {contract.isExpanded ? (
+                                                                    <ChevronDown className="h-4 w-4" />
+                                                                ) : (
+                                                                    <ChevronRight className="h-4 w-4" />
+                                                                )}
+                                                            </Button>
+                                                        </TableCell>
+                                                        <TableCell>{contract.id}</TableCell>
+                                                        <TableCell>
+                                                            {contract.isEditing ? (
+                                                                <Input
+                                                                    value={contract.editedValues?.avtaleKontor || contract.avtaleKontor || ''}
+                                                                    onChange={(e) => handleValueChange(contract.id, 'avtaleKontor', e.target.value)}
+                                                                    className="h-8"
+                                                                />
+                                                            ) : (
+                                                                contract.avtaleKontor || '-'
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {contract.isEditing ? (
+                                                                <Input
+                                                                    value={contract.editedValues?.avtaleNavn || contract.avtaleNavn || ''}
+                                                                    onChange={(e) => handleValueChange(contract.id, 'avtaleNavn', e.target.value)}
+                                                                    className="h-8"
+                                                                />
+                                                            ) : (
+                                                                contract.avtaleNavn || '-'
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {contract.isEditing ? (
+                                                                <Input
+                                                                    value={contract.editedValues?.type || contract.type || ''}
+                                                                    onChange={(e) => handleValueChange(contract.id, 'type', e.target.value)}
+                                                                    className="h-8"
+                                                                />
+                                                            ) : (
+                                                                contract.type || '-'
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>{contract.validTransport || '-'}</TableCell>
+                                                        <TableCell>
+                                                            {contract.startLocation ? (
+                                                                <>
+                                                                    {contract.startLocation.city} ({contract.startLocation.postalCode})
+                                                                </>
+                                                            ) : '-'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => toggleEditMode(contract.id)}
+                                                                    title={contract.isEditing ? t('common.cancel', language) : t('common.edit', language)}
+                                                                >
+                                                                    {contract.isEditing ? (
+                                                                        <X className="h-4 w-4" />
+                                                                    ) : (
+                                                                        <EditIcon className="h-4 w-4" />
+                                                                    )}
+                                                                </Button>
+                                                                {contract.isEditing && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => saveEditedValues(contract.id)}
+                                                                        title={t('common.save', language)}
+                                                                    >
+                                                                        <Save className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    {contract.isExpanded && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={8} className="bg-muted/30 p-4">
+                                                                {contract.relatedData?.isLoading ? (
+                                                                    <div className="flex justify-center p-4">
+                                                                        <Loader2 className="h-6 w-6 animate-spin" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="space-y-6">
+                                                                        {/* Area Information */}
+                                                                        {contract.relatedData?.area && (
+                                                                            <div>
+                                                                                <h4 className="font-medium mb-2">{t('contracts.areaDetails', language)}</h4>
+                                                                                <dl className="grid grid-cols-3 gap-4">
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">{t('contracts.avtaleKontor', language)}</dt>
+                                                                                        <dd>{contract.relatedData.area.avtaleKontor || '-'}</dd>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">{t('contracts.avtaleNavn', language)}</dt>
+                                                                                        <dd>{contract.relatedData.area.avtaleNavn || '-'}</dd>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">{t('contracts.henteOmrade', language)}</dt>
+                                                                                        <dd>{contract.relatedData.area.henteOmrade || '-'}</dd>
+                                                                                    </div>
+                                                                                </dl>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Contract Type Information */}
+                                                                        {contract.relatedData?.contractType && (
+                                                                            <div>
+                                                                                <h4 className="font-medium mb-2">{t('contracts.typeDetails', language)}</h4>
+                                                                                <dl className="grid grid-cols-3 gap-4">
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">KI</dt>
+                                                                                        <dd>{contract.relatedData.contractType.ki || '0'}</dd>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">KK</dt>
+                                                                                        <dd>{contract.relatedData.contractType.kk || '0'}</dd>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">{t('contracts.contractType', language)}</dt>
+                                                                                        <dd>{contract.relatedData.contractType.kontrakttype || '-'}</dd>
+                                                                                    </div>
+                                                                                </dl>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Resources Information */}
+                                                                        {contract.relatedData?.resources && contract.relatedData.resources.length > 0 && (
+                                                                            <div>
+                                                                                <h4 className="font-medium mb-2">{t('contracts.resourceDetails', language)}</h4>
+                                                                                <div className="overflow-x-auto">
+                                                                                    <table className="min-w-full divide-y divide-border">
+                                                                                        <thead>
+                                                                                            <tr>
+                                                                                                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">
+                                                                                                    {t('contracts.transportor', language)}
+                                                                                                </th>
+                                                                                                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">
+                                                                                                    {t('contracts.amount', language)}
+                                                                                                </th>
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody className="divide-y divide-border">
+                                                                                            {contract.relatedData.resources.map((resource, idx) => (
+                                                                                                <tr key={idx}>
+                                                                                                    <td className="px-4 py-2">{resource.avtaleTransportor || '-'}</td>
+                                                                                                    <td className="px-4 py-2">{resource.antall || '0'}</td>
+                                                                                                </tr>
+                                                                                            ))}
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Location Information */}
+                                                                        {contract.relatedData?.location && (
+                                                                            <div>
+                                                                                <h4 className="font-medium mb-2">{t('contracts.locationDetails', language)}</h4>
+                                                                                <dl className="grid grid-cols-2 gap-4">
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">{t('contracts.city', language)}</dt>
+                                                                                        <dd>{contract.startLocation?.city || '-'}</dd>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <dt className="text-sm text-muted-foreground">{t('contracts.postalCode', language)}</dt>
+                                                                                        <dd>{contract.startLocation?.postalCode || '-'}</dd>
+                                                                                    </div>
+                                                                                </dl>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Contract Content Information */}
+                                                                        {contract.relatedData?.contractContent && (
+                                                                            <div>
+                                                                                <h4 className="font-medium mb-2">{t('contracts.contentDetails', language)}</h4>
+                                                                                <pre className="text-sm bg-muted p-2 rounded-lg overflow-auto">
+                                                                                    {JSON.stringify(contract.relatedData.contractContent, null, 2)}
+                                                                                </pre>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </>
                                             ))
                                         )}
                                     </TableBody>

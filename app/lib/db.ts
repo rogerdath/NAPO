@@ -2,6 +2,7 @@
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Contract, Area, ContractType, Resource, Location, ContractContent, Relation, DataFile } from '@/types';
+import { info, error } from '@/app/lib/client-logger';
 
 interface ContractDB extends DBSchema {
     'areas': {
@@ -318,34 +319,39 @@ export async function getDataFilesByType(type: string) {
 }
 
 export async function clearDatabase() {
-    await initDB();
-    const tx = db.transaction(
-        [
-            'areas',
-            'contract-types',
-            'resources',
-            'locations',
-            'contract-contents',
-            'relations',
-            'data-files',
-            'contracts'
-        ],
-        'readwrite'
-    );
+    try {
+        await initDB();
+        const tx = db.transaction(
+            [
+                'areas',
+                'contract-types',
+                'resources',
+                'locations',
+                'contract-contents',
+                'relations',
+                'data-files',
+                'contracts'
+            ],
+            'readwrite'
+        );
 
-    await Promise.all([
-        tx.objectStore('areas').clear(),
-        tx.objectStore('contract-types').clear(),
-        tx.objectStore('resources').clear(),
-        tx.objectStore('locations').clear(),
-        tx.objectStore('contract-contents').clear(),
-        tx.objectStore('relations').clear(),
-        tx.objectStore('data-files').clear(),
-        tx.objectStore('contracts').clear(),
-        tx.done
-    ]);
+        await Promise.all([
+            tx.objectStore('areas').clear(),
+            tx.objectStore('contract-types').clear(),
+            tx.objectStore('resources').clear(),
+            tx.objectStore('locations').clear(),
+            tx.objectStore('contract-contents').clear(),
+            tx.objectStore('relations').clear(),
+            tx.objectStore('data-files').clear(),
+            tx.objectStore('contracts').clear(),
+            tx.done
+        ]);
 
-    await info('Database', 'All data cleared successfully');
+        await info('Database', 'All data cleared successfully');
+    } catch (err) {
+        await error('Database', 'Failed to clear database', err);
+        throw err;
+    }
 }
 
 export async function getDatabaseInfo() {
@@ -413,4 +419,36 @@ export async function searchContracts(query: {
     }
 
     return contracts;
+}
+
+// Add new function to get all related data for a contract
+export async function getContractRelatedData(omradeKode: string) {
+    await initDB();
+    
+    try {
+        const [
+            area,
+            contractType,
+            resources,
+            location,
+            contractContent
+        ] = await Promise.all([
+            getAreaByOmradeKode(omradeKode),
+            getContractTypeByOmradeKode(omradeKode),
+            getResourcesByOmradeKode(omradeKode),
+            getLocationByOmradeKode(omradeKode),
+            getContractContentByOmradeKode(omradeKode)
+        ]);
+
+        return {
+            area,
+            contractType,
+            resources,
+            location,
+            contractContent
+        };
+    } catch (err) {
+        console.error('Failed to fetch related data:', err);
+        throw err;
+    }
 } 

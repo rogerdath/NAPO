@@ -29,6 +29,31 @@ interface FileUploadStatus {
 }
 
 const parseCSV = (content: string): any[] => {
+    // Normalize line endings and handle BOM
+    content = content.replace(/^\uFEFF/, ''); // Remove BOM if present
+    content = content.replace(/\r\n/g, '\n'); // Normalize line endings
+    
+    // Pre-process content to fix common encoding issues
+    content = content
+        .replace(/Ã¸/g, 'ø')
+        .replace(/Ã¦/g, 'æ')
+        .replace(/Ã¥/g, 'å')
+        .replace(/Ã˜/g, 'Ø')
+        .replace(/Ã†/g, 'Æ')
+        .replace(/Ã…/g, 'Å')
+        .replace(/Ã¸/g, 'ø')
+        .replace(/Ã¦/g, 'æ')
+        .replace(/Ã¥/g, 'å')
+        .replace(/Ã˜/g, 'Ø')
+        .replace(/Ã†/g, 'Æ')
+        .replace(/Ã…/g, 'Å')
+        .replace(/æ/g, 'æ')
+        .replace(/ø/g, 'ø')
+        .replace(/å/g, 'å')
+        .replace(/Æ/g, 'Æ')
+        .replace(/Ø/g, 'Ø')
+        .replace(/Å/g, 'Å');
+    
     const lines = content.split('\n');
     if (lines.length < 2) return [];
 
@@ -39,8 +64,36 @@ const parseCSV = (content: string): any[] => {
         const line = lines[i].trim();
         if (!line) continue;
 
-        const values = line.split(',').map(v => v.trim());
-        if (values.length !== headers.length) continue;
+        // Handle quoted values correctly
+        const values: string[] = [];
+        let inQuotes = false;
+        let currentValue = '';
+        
+        for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                // Clean and normalize the value before adding
+                const cleanValue = currentValue
+                    .trim()
+                    .replace(/^"(.*)"$/, '$1') // Remove surrounding quotes
+                    .replace(/[\uFFFD\u0000-\u0019]+/g, ''); // Remove invalid characters
+                values.push(cleanValue);
+                currentValue = '';
+            } else {
+                currentValue += char;
+            }
+        }
+        // Don't forget to add the last value
+        values.push(currentValue.trim().replace(/^"(.*)"$/, '$1'));
+
+        // Skip if number of values doesn't match headers
+        if (values.length !== headers.length) {
+            console.warn(`Skipping line ${i + 1}: value count mismatch`);
+            continue;
+        }
 
         const row: any = {};
         headers.forEach((header, index) => {
@@ -50,6 +103,34 @@ const parseCSV = (content: string): any[] => {
     }
 
     return data;
+};
+
+// Update the detectFileEncoding function to better handle Norwegian characters
+const detectFileEncoding = async (file: File): Promise<string> => {
+    // Read first few bytes to check for BOM
+    const buffer = await file.slice(0, 4).arrayBuffer();
+    const view = new Uint8Array(buffer);
+    
+    // Check for common BOMs
+    if (view[0] === 0xEF && view[1] === 0xBB && view[2] === 0xBF) return 'UTF-8';
+    if (view[0] === 0xFE && view[1] === 0xFF) return 'UTF-16BE';
+    if (view[0] === 0xFF && view[1] === 0xFE) return 'UTF-16LE';
+    
+    // Try to detect Windows-1252 or ISO-8859-1
+    try {
+        const sample = await file.slice(0, 1024).text(); // Read first 1KB
+        if (sample.includes('Ã¸') || sample.includes('Ã¦') || sample.includes('Ã¥')) {
+            return 'UTF-8'; // Likely double-encoded
+        }
+        if (sample.includes('æ') || sample.includes('ø') || sample.includes('å')) {
+            return 'windows-1252';
+        }
+    } catch (err) {
+        console.warn('Error detecting encoding:', err);
+    }
+    
+    // Default to windows-1252 for Norwegian characters
+    return 'windows-1252';
 };
 
 const detectFileType = (filename: string, headers: string[]): DataType | null => {
@@ -84,12 +165,30 @@ const detectFileType = (filename: string, headers: string[]): DataType | null =>
 const processFile = async (file: File): Promise<FileUploadStatus> => {
     const status: FileUploadStatus = {
         filename: file.name,
-        type: 'area', // Will be updated
+        type: 'area',
         status: 'pending'
     };
 
     try {
-        const content = await file.text();
+        // Detect encoding and read file accordingly
+        const encoding = await detectFileEncoding(file);
+        console.log(`Detected encoding for ${file.name}:`, encoding);
+        
+        let content: string;
+        try {
+            if (encoding === 'windows-1252') {
+                const buffer = await file.arrayBuffer();
+                const decoder = new TextDecoder('windows-1252');
+                content = decoder.decode(buffer);
+            } else {
+                content = await file.text();
+            }
+        } catch (err) {
+            console.error('Error reading file with encoding', encoding, err);
+            // Fallback to default text() method
+            content = await file.text();
+        }
+
         const data = parseCSV(content);
         
         if (data.length === 0) {
