@@ -54,6 +54,15 @@ export function ContractManager({ initialContracts }: ContractManagerProps) {
                 
                 // Load contracts from IndexedDB
                 const loadedContracts = await searchContracts({});
+                
+                if (loadedContracts.length === 0) {
+                    await info('ContractManager', 'No contracts found in database');
+                    setContracts([]);
+                    setFilteredContracts([]);
+                    setStats({ avtaleKontorer: [], types: [] });
+                    return;
+                }
+
                 setContracts(loadedContracts);
                 setFilteredContracts(loadedContracts);
 
@@ -77,6 +86,9 @@ export function ContractManager({ initialContracts }: ContractManagerProps) {
                 });
             } catch (err) {
                 await error('ContractManager', 'Failed to initialize IndexedDB', err);
+                setContracts([]);
+                setFilteredContracts([]);
+                setStats({ avtaleKontorer: [], types: [] });
             } finally {
                 setIsInitializing(false);
             }
@@ -378,7 +390,14 @@ export function ContractManager({ initialContracts }: ContractManagerProps) {
                                     onClick={async () => {
                                         if (confirm('Are you sure you want to clear the database?')) {
                                             await clearDatabase();
-                                            refreshDbInfo();
+                                            await refreshDbInfo();
+                                            const loadedContracts = await searchContracts({});
+                                            setContracts(loadedContracts);
+                                            setFilteredContracts(loadedContracts);
+                                            setStats({
+                                                avtaleKontorer: [],
+                                                types: []
+                                            });
                                         }
                                     }}
                                 >

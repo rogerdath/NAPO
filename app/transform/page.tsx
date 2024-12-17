@@ -17,7 +17,8 @@ import {
     storeLocation, storeLocations,
     storeContractContent, storeContractContents,
     storeDataFile,
-    storeRelation
+    storeRelation,
+    storeContracts
 } from '@/app/lib/db';
 
 interface FileUploadStatus {
@@ -121,7 +122,7 @@ const processFile = async (file: File): Promise<FileUploadStatus> => {
         // Process and store typed data
         switch (type) {
             case 'area':
-                await storeAreas(data.map(row => ({
+                const areas = data.map(row => ({
                     id: crypto.randomUUID(),
                     avtaleKontor: row.AvtaleKontor || '',
                     avtaleNavn: row.AvtaleNavn || '',
@@ -129,7 +130,27 @@ const processFile = async (file: File): Promise<FileUploadStatus> => {
                     henteOmrade: row.HenteOmrade || '',
                     leveringOmrade: row.LeveringOmrade || '',
                     timestamp: Date.now()
-                })));
+                }));
+                
+                await storeAreas(areas);
+
+                // Create corresponding contract entries
+                const contracts = areas.map(area => ({
+                    id: area.omradeKode,
+                    avtaleKontor: area.avtaleKontor,
+                    avtaleNavn: area.avtaleNavn,
+                    omradeKode: area.omradeKode,
+                    avtaleOmrade: area.henteOmrade || '',
+                    type: 'Both', // Default type
+                    startLocation: {
+                        postalCode: '',
+                        city: area.henteOmrade
+                    },
+                    resources: 0,
+                    timestamp: Date.now()
+                }));
+
+                await storeContracts(contracts);
                 break;
 
             case 'contractType':
@@ -228,7 +249,9 @@ export default function TransformPage() {
         const statuses: FileUploadStatus[] = [];
 
         try {
-            for (const file of selectedFiles) {
+            // Convert FileList to Array to fix iteration issue
+            const files = Array.from(selectedFiles);
+            for (const file of files) {
                 const status = await processFile(file);
                 statuses.push(status);
                 setFileStatuses([...statuses]);

@@ -78,84 +78,88 @@ export async function initDB() {
         try {
             db = await openDB<ContractDB>('contract-manager', 2, {
                 upgrade(db, oldVersion, newVersion, transaction) {
-                    // Delete old stores if they exist
-                    const storeNames = db.objectStoreNames;
-                    for (const storeName of storeNames) {
-                        db.deleteObjectStore(storeName);
+                    // Only delete stores if upgrading from version 1
+                    if (oldVersion < 2) {
+                        const storeNames = db.objectStoreNames;
+                        for (const storeName of storeNames) {
+                            db.deleteObjectStore(storeName);
+                        }
+
+                        console.log('Creating stores...');
+
+                        // Areas store
+                        const areaStore = db.createObjectStore('areas', {
+                            keyPath: 'id'
+                        });
+                        areaStore.createIndex('by-omradekode', 'omradeKode');
+                        areaStore.createIndex('by-avtalekontor', 'avtaleKontor');
+
+                        // Contract types store
+                        const typeStore = db.createObjectStore('contract-types', {
+                            keyPath: 'id'
+                        });
+                        typeStore.createIndex('by-omradekode', 'omradeKode');
+
+                        // Resources store
+                        const resourceStore = db.createObjectStore('resources', {
+                            keyPath: 'id'
+                        });
+                        resourceStore.createIndex('by-omradekode', 'avtaleOmradeKode');
+                        resourceStore.createIndex('by-avtalekontor', 'avtaleKontor');
+
+                        // Locations store
+                        const locationStore = db.createObjectStore('locations', {
+                            keyPath: 'id'
+                        });
+                        locationStore.createIndex('by-omradekode', 'omradeKode');
+
+                        // Contract contents store
+                        const contentStore = db.createObjectStore('contract-contents', {
+                            keyPath: 'id'
+                        });
+                        contentStore.createIndex('by-omradekode', 'omradeKode');
+
+                        // Relations store
+                        const relationStore = db.createObjectStore('relations', {
+                            keyPath: 'id'
+                        });
+                        relationStore.createIndex('by-source', ['sourceType', 'sourceId']);
+                        relationStore.createIndex('by-target', ['targetType', 'targetId']);
+
+                        // Data files store
+                        const fileStore = db.createObjectStore('data-files', {
+                            keyPath: 'id'
+                        });
+                        fileStore.createIndex('by-type', 'type');
+                        fileStore.createIndex('by-filename', 'filename');
+
+                        // Contracts store
+                        const contractStore = db.createObjectStore('contracts', {
+                            keyPath: 'id'
+                        });
+                        contractStore.createIndex('by-avtalekontor', 'avtaleKontor');
+                        contractStore.createIndex('by-type', 'type');
+                        contractStore.createIndex('by-postalcode', 'startLocation.postalCode');
+
+                        console.log('Stores created successfully');
                     }
-
-                    console.log('Creating stores...');
-
-                    // Areas store
-                    const areaStore = db.createObjectStore('areas', {
-                        keyPath: 'id'
-                    });
-                    areaStore.createIndex('by-omradekode', 'omradeKode');
-                    areaStore.createIndex('by-avtalekontor', 'avtaleKontor');
-
-                    // Contract types store
-                    const typeStore = db.createObjectStore('contract-types', {
-                        keyPath: 'id'
-                    });
-                    typeStore.createIndex('by-omradekode', 'omradeKode');
-
-                    // Resources store
-                    const resourceStore = db.createObjectStore('resources', {
-                        keyPath: 'id'
-                    });
-                    resourceStore.createIndex('by-omradekode', 'avtaleOmradeKode');
-                    resourceStore.createIndex('by-avtalekontor', 'avtaleKontor');
-
-                    // Locations store
-                    const locationStore = db.createObjectStore('locations', {
-                        keyPath: 'id'
-                    });
-                    locationStore.createIndex('by-omradekode', 'omradeKode');
-
-                    // Contract contents store
-                    const contentStore = db.createObjectStore('contract-contents', {
-                        keyPath: 'id'
-                    });
-                    contentStore.createIndex('by-omradekode', 'omradeKode');
-
-                    // Relations store
-                    const relationStore = db.createObjectStore('relations', {
-                        keyPath: 'id'
-                    });
-                    relationStore.createIndex('by-source', ['sourceType', 'sourceId']);
-                    relationStore.createIndex('by-target', ['targetType', 'targetId']);
-
-                    // Data files store
-                    const fileStore = db.createObjectStore('data-files', {
-                        keyPath: 'id'
-                    });
-                    fileStore.createIndex('by-type', 'type');
-                    fileStore.createIndex('by-filename', 'filename');
-
-                    // Contracts store
-                    const contractStore = db.createObjectStore('contracts', {
-                        keyPath: 'id'
-                    });
-                    contractStore.createIndex('by-avtalekontor', 'avtaleKontor');
-                    contractStore.createIndex('by-type', 'type');
-                    contractStore.createIndex('by-postalcode', 'startLocation.postalCode');
-
-                    console.log('Stores created successfully');
                 },
                 blocked() {
-                    console.log('Database blocked');
+                    console.log('Database blocked - please close other tabs with this app');
                 },
                 blocking() {
-                    console.log('Database blocking');
+                    console.log('Database blocking - please reload this page');
+                    window.location.reload();
                 },
                 terminated() {
-                    console.log('Database terminated');
+                    console.log('Database terminated - please reload this page');
+                    window.location.reload();
                 }
             });
 
             // Verify stores were created
             const storeNames = Array.from(db.objectStoreNames);
-            console.log('Created stores:', storeNames);
+            console.log('Available stores:', storeNames);
 
             if (!storeNames.includes('areas') || 
                 !storeNames.includes('contract-types') || 
@@ -316,9 +320,19 @@ export async function getDataFilesByType(type: string) {
 export async function clearDatabase() {
     await initDB();
     const tx = db.transaction(
-        ['areas', 'contract-types', 'resources', 'locations', 'contract-contents', 'relations', 'data-files'],
+        [
+            'areas',
+            'contract-types',
+            'resources',
+            'locations',
+            'contract-contents',
+            'relations',
+            'data-files',
+            'contracts'
+        ],
         'readwrite'
     );
+
     await Promise.all([
         tx.objectStore('areas').clear(),
         tx.objectStore('contract-types').clear(),
@@ -327,8 +341,11 @@ export async function clearDatabase() {
         tx.objectStore('contract-contents').clear(),
         tx.objectStore('relations').clear(),
         tx.objectStore('data-files').clear(),
+        tx.objectStore('contracts').clear(),
         tx.done
     ]);
+
+    await info('Database', 'All data cleared successfully');
 }
 
 export async function getDatabaseInfo() {
