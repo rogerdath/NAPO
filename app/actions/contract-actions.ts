@@ -1,32 +1,34 @@
 "use server";
 
+import { Contract } from '@/types';
+import { error, info } from '@/app/lib/logger';
+import { processCSVData } from '@/app/lib/csv';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { serverError, info, debug } from '@/app/lib/logger';
 
-interface Contract {
-    AvtaleKontor?: string;
-    Type?: string;
-    PostalCode?: string;
-    [key: string]: any;
-}
+const OUTPUT_DIR = path.join(process.cwd(), 'output');
 
 export async function loadContracts(): Promise<Contract[]> {
     try {
-        const outputDir = path.join(process.cwd(), 'output');
-        const files = await fs.readdir(outputDir);
-        
+        // Ensure output directory exists
+        try {
+            await fs.access(OUTPUT_DIR);
+        } catch {
+            await fs.mkdir(OUTPUT_DIR, { recursive: true });
+        }
+
         // Find the most recent JSON file
-        const jsonFiles = files.filter(f => f.endsWith('.json') && !f.endsWith('history.json'));
+        const files = await fs.readdir(OUTPUT_DIR);
+        const jsonFiles = files.filter(f => f.endsWith('.json'));
+        
         if (jsonFiles.length === 0) {
-            await info('ContractActions', 'No JSON files found in output directory');
             return [];
         }
-        
+
         const fileStats = await Promise.all(
             jsonFiles.map(async file => ({
                 name: file,
-                time: (await fs.stat(path.join(outputDir, file))).mtime.getTime()
+                time: (await fs.stat(path.join(OUTPUT_DIR, file))).mtime.getTime()
             }))
         );
 
@@ -34,21 +36,21 @@ export async function loadContracts(): Promise<Contract[]> {
             prev.time > curr.time ? prev : curr
         );
 
-        await info('ContractActions', `Loading contracts from ${mostRecentFile.name}`);
-
         const content = await fs.readFile(
-            path.join(outputDir, mostRecentFile.name),
+            path.join(OUTPUT_DIR, mostRecentFile.name),
             'utf8'
         );
+
+        const contracts = JSON.parse(content);
         
-        const data = JSON.parse(content);
-        // Ensure we have an array of contracts
-        const contracts = Array.isArray(data) ? data : [data];
-        await info('ContractActions', `Loaded ${contracts.length} contracts from ${mostRecentFile.name}`);
+        await info('ContractActions', 'Contracts loaded', {
+            count: contracts.length
+        });
+
         return contracts;
-    } catch (error) {
-        await serverError(error instanceof Error ? error : new Error('Unknown error in loadContracts'));
-        throw error;
+    } catch (err) {
+        await error('ContractActions', 'Failed to load contracts', err);
+        throw err;
     }
 }
 
@@ -62,89 +64,80 @@ export async function searchContracts(
     }
 ): Promise<Contract[]> {
     try {
-        if (!Array.isArray(contracts)) {
-            const error = new Error('searchContracts received non-array contracts');
-            await serverError(error);
-            throw error;
+        let filtered = [...contracts];
+
+        // Apply filters
+        if (filters.avtaleKontor) {
+            filtered = filtered.filter(c => c.avtaleKontor === filters.avtaleKontor);
+        }
+        if (filters.type) {
+            filtered = filtered.filter(c => c.type === filters.type);
+        }
+        if (filters.postalCode) {
+            filtered = filtered.filter(c => 
+                c.startLocation?.postalCode?.includes(filters.postalCode || '')
+            );
         }
 
-        await debug('ContractActions', 'Applying filters', {
-            searchTerm,
-            filters,
-            totalContracts: contracts.length
-        });
-
-        const filtered = contracts.filter(contract => {
-            const matchesSearch = !searchTerm || 
+        // Apply search term
+        if (searchTerm) {
+            filtered = filtered.filter(contract => 
                 Object.values(contract).some(value => 
                     String(value).toLowerCase().includes(searchTerm.toLowerCase())
-                );
-                
-            const matchesAvtaleKontor = !filters.avtaleKontor ||
-                contract.AvtaleKontor?.toLowerCase() === filters.avtaleKontor.toLowerCase();
-                
-            const matchesType = !filters.type ||
-                contract.Type?.toLowerCase() === filters.type.toLowerCase();
-                
-            const matchesPostalCode = !filters.postalCode ||
-                contract.PostalCode?.includes(filters.postalCode);
-                
-            return matchesSearch && matchesAvtaleKontor && matchesType && matchesPostalCode;
-        });
-
-        await debug('ContractActions', 'Filters applied', {
-            filteredCount: filtered.length,
-            reduction: contracts.length - filtered.length
-        });
+                )
+            );
+        }
 
         return filtered;
-    } catch (error) {
-        await serverError(error instanceof Error ? error : new Error('Unknown error in searchContracts'));
-        throw error;
+    } catch (err) {
+        await error('ContractActions', 'Failed to search contracts', err);
+        throw err;
     }
 }
 
-export async function getContractStats() {
+export async function getContractStats(): Promise<{
+    avtaleKontorer: string[];
+    types: string[];
+}> {
     try {
         const contracts = await loadContracts();
-        if (!Array.isArray(contracts)) {
-            const error = new Error('getContractStats received non-array contracts');
-            await serverError(error);
-            throw error;
-        }
         
-        const avtaleKontorer = Array.from(new Set(
+        const avtaleKontorer = [...new Set(
             contracts
-                .map(c => c.AvtaleKontor)
-                .filter((k): k is string => k !== undefined)
-        ));
-        
-        const types = Array.from(new Set(
-            contracts
-                .map(c => c.Type)
-                .filter((t): t is string => t !== undefined)
-        ));
-        
-        const stats = {
-            total: contracts.length,
-            avtaleKontorer,
-            types,
-            stats: {
-                byAvtaleKontor: avtaleKontorer.map(kontor => ({
-                    name: kontor,
-                    count: contracts.filter(c => c.AvtaleKontor === kontor).length
-                })),
-                byType: types.map(type => ({
-                    name: type,
-                    count: contracts.filter(c => c.Type === type).length
-                }))
-            }
-        };
+                .map(c => c.avtaleKontor)
+                .filter(Boolean)
+        )];
 
-        await info('ContractActions', 'Contract stats generated', stats);
-        return stats;
-    } catch (error) {
-        await serverError(error instanceof Error ? error : new Error('Unknown error in getContractStats'));
-        throw error;
+        const types = [...new Set(
+            contracts
+                .map(c => c.type)
+                .filter(Boolean)
+        )];
+
+        return {
+            avtaleKontorer,
+            types
+        };
+    } catch (err) {
+        await error('ContractActions', 'Failed to get contract stats', err);
+        throw err;
+    }
+}
+
+export async function saveContracts(contracts: Contract[]): Promise<void> {
+    try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `contracts_${timestamp}.json`;
+        const filePath = path.join(OUTPUT_DIR, fileName);
+
+        await fs.writeFile(filePath, JSON.stringify(contracts, null, 2));
+
+        await info('ContractActions', 'Contracts saved', {
+            fileName,
+            count: contracts.length
+        });
+    } catch (err) {
+        await error('ContractActions', 'Failed to save contracts', err);
+        throw err;
     }
 } 

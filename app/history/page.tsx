@@ -9,6 +9,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { loadHistory, readFile, deleteFile, saveHistory, saveFile } from "@/app/actions/file-actions";
+import { useLanguage } from "@/components/theme/language-provider";
+import { t } from "@/app/lib/i18n";
 
 interface ExportHistory {
     id: string;
@@ -19,6 +21,7 @@ interface ExportHistory {
 }
 
 export default function HistoryPage() {
+    const { language } = useLanguage();
     const [history, setHistory] = useState<ExportHistory[]>([]);
     const [selectedFile, setSelectedFile] = useState<{ content: string; name: string; isEditing?: boolean } | null>(null);
     const [editedContent, setEditedContent] = useState<string>('');
@@ -29,12 +32,12 @@ export default function HistoryPage() {
                 const data = await loadHistory();
                 setHistory(data);
             } catch (error) {
-                console.error('Error loading history:', error);
+                console.error(t('errors.loadingFailed', language), error);
             }
         };
 
         fetchHistory();
-    }, []);
+    }, [language]);
 
     const handlePreview = async (fileName: string, isEditing = false) => {
         try {
@@ -44,7 +47,7 @@ export default function HistoryPage() {
                 setEditedContent(content);
             }
         } catch (error) {
-            console.error('Error loading file for preview:', error);
+            console.error(t('errors.loadingFailed', language), error);
         }
     };
 
@@ -61,7 +64,7 @@ export default function HistoryPage() {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         } catch (error) {
-            console.error('Error downloading file:', error);
+            console.error(t('errors.downloadFailed', language), error);
         }
     };
 
@@ -72,7 +75,7 @@ export default function HistoryPage() {
             await saveHistory(updatedHistory);
             setHistory(updatedHistory);
         } catch (error) {
-            console.error('Error deleting file:', error);
+            console.error(t('errors.deleteFailed', language), error);
         }
     };
 
@@ -98,8 +101,8 @@ export default function HistoryPage() {
             setHistory(updatedHistory);
             setSelectedFile(null);
         } catch (error) {
-            alert('Invalid JSON format');
-            console.error('Error saving edited file:', error);
+            alert(t('errors.invalidFormat', language));
+            console.error(t('errors.savingFailed', language), error);
         }
     };
 
@@ -115,21 +118,21 @@ export default function HistoryPage() {
     return (
         <div className="space-y-8">
             <PageHeader
-                title="Historikk"
-                description="Se tidligere transformasjoner og eksporter"
+                title={t('history.title', language)}
+                description={t('history.description', language)}
             />
 
             <Card className="border-brand-secondary/20">
                 <CardHeader>
                     <CardTitle className="text-xl flex items-center gap-2">
                         <History className="h-5 w-5 text-brand-secondary" />
-                        Tidligere eksporter
+                        {t('history.previousExports', language)}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {history.length === 0 ? (
                         <div className="text-muted-foreground text-sm">
-                            Ingen tidligere eksporter funnet.
+                            {t('history.noHistory', language)}
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -144,13 +147,13 @@ export default function HistoryPage() {
                                             <h3 className="font-medium">{item.fileName}</h3>
                                             <div className="text-sm text-muted-foreground space-y-1">
                                                 <p>
-                                                    Eksportert {formatDistanceToNow(new Date(item.date), {
+                                                    {formatDistanceToNow(new Date(item.date), {
                                                         addSuffix: true,
-                                                        locale: nb
+                                                        locale: language === 'no' ? nb : undefined
                                                     })}
                                                 </p>
-                                                <p>Størrelse: {formatFileSize(item.fileSize)}</p>
-                                                <p>Filer: {item.files.join(', ')}</p>
+                                                <p>{t('history.fileSize', language)}: {formatFileSize(item.fileSize)}</p>
+                                                <p>{t('history.fileName', language)}: {item.files.join(', ')}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -159,6 +162,7 @@ export default function HistoryPage() {
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => handlePreview(item.fileName, true)}
+                                            title={t('common.edit', language)}
                                             className="text-brand-secondary hover:text-brand-secondary/80"
                                         >
                                             <Pencil className="h-4 w-4" />
@@ -167,6 +171,7 @@ export default function HistoryPage() {
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => handleDownload(item.fileName)}
+                                            title={t('history.downloadFile', language)}
                                             className="text-brand-secondary hover:text-brand-secondary/80"
                                         >
                                             <Download className="h-4 w-4" />
@@ -175,6 +180,7 @@ export default function HistoryPage() {
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => handleDelete(item.id, item.fileName)}
+                                            title={t('history.deleteFile', language)}
                                             className="text-destructive hover:text-destructive/80"
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -187,10 +193,10 @@ export default function HistoryPage() {
                 </CardContent>
             </Card>
 
-            <Dialog open={selectedFile !== null} onOpenChange={() => setSelectedFile(null)}>
+            <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
                 <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
                     <DialogTitle className="sr-only">
-                        {selectedFile?.isEditing ? 'Edit JSON' : 'JSON Preview'}
+                        {selectedFile?.isEditing ? t('common.edit', language) : t('common.view', language)}
                     </DialogTitle>
                     <div className="flex-1 overflow-auto">
                         <div className="sticky top-0 flex justify-between items-center bg-background py-2 mb-4">
@@ -205,7 +211,7 @@ export default function HistoryPage() {
                                         size="sm"
                                         onClick={handleSaveEdit}
                                     >
-                                        Lagre
+                                        {t('common.save', language)}
                                     </Button>
                                 ) : (
                                     <>
@@ -215,19 +221,19 @@ export default function HistoryPage() {
                                             onClick={() => {
                                                 if (selectedFile) {
                                                     navigator.clipboard.writeText(selectedFile.content)
-                                                        .then(() => alert('Kopiert til utklippstavle!'))
-                                                        .catch(err => console.error('Feil ved kopiering:', err));
+                                                        .then(() => alert(t('common.success', language)))
+                                                        .catch(err => console.error(t('errors.copyFailed', language), err));
                                                 }
                                             }}
                                         >
-                                            Kopier
+                                            {t('common.copy', language)}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => selectedFile && handleDownload(selectedFile.name)}
                                         >
-                                            Last ned
+                                            {t('history.downloadFile', language)}
                                         </Button>
                                     </>
                                 )}

@@ -5,7 +5,9 @@ import { scala, calibri } from './fonts';
 import { cn } from "@/lib/utils";
 import { Navigation } from "@/components/layout/navigation";
 import { ThemeProvider } from "@/components/theme/theme-provider";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LanguageProvider } from "@/components/theme/language-provider";
+import { SettingsDialog } from "@/components/ui/settings-dialog";
+import 'leaflet/dist/leaflet.css';
 
 export default function RootLayout({
     children,
@@ -24,17 +26,19 @@ export default function RootLayout({
                     enableSystem
                     disableTransitionOnChange
                 >
-                    <div className="relative flex min-h-screen bg-background">
-                        <Navigation />
-                        <main className="flex-1 pl-64">
-                            <div className="container p-8">
-                                <div className="absolute right-8 top-4">
-                                    <ThemeToggle />
+                    <LanguageProvider>
+                        <div className="relative flex min-h-screen bg-background">
+                            <Navigation />
+                            <main className="flex-1 pl-64">
+                                <div className="container p-8">
+                                    <div className="absolute right-8 top-4">
+                                        <SettingsDialog />
+                                    </div>
+                                    {children}
                                 </div>
-                                {children}
-                            </div>
-                        </main>
-                    </div>
+                            </main>
+                        </div>
+                    </LanguageProvider>
                 </ThemeProvider>
             </body>
         </html>

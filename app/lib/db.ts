@@ -1,235 +1,187 @@
 'use client';
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Contract, TransformedData } from '@/app/actions/dashboard-actions';
+import { Contract } from '@/types';
 
-interface CSVFile {
-    name: string;
-    content: string[][];
-    timestamp: number;
-}
-
-interface UserPreferences {
-    fieldOrder: string[];
-    filters: Record<string, string>;
-    lastView: string;
-}
-
-interface JSONData {
-    data: TransformedData;
-    timestamp: number;
-}
-
-interface AppDBSchema extends DBSchema {
-    jsonData: {
+interface ContractDB extends DBSchema {
+    'raw-data': {
         key: string;
-        value: JSONData;
-        indexes: { 'by-timestamp': number };
+        value: {
+            id: string;
+            content: string;
+            filename: string;
+            timestamp: number;
+        };
     };
-    csvFiles: {
+    'contracts': {
         key: string;
-        value: CSVFile;
-        indexes: { 'by-timestamp': number };
+        value: Contract;
+        indexes: {
+            'by-avtalekontor': string;
+            'by-type': string;
+            'by-postal': string;
+        };
     };
-    userPreferences: {
+    'structures': {
         key: string;
-        value: UserPreferences;
+        value: {
+            id: string;
+            name: string;
+            structure: any;
+            timestamp: number;
+        };
+    };
+    'locations': {
+        key: string;
+        value: {
+            id: string;
+            contractId: string;
+            coordinate: { øst: number; nord: number };
+            timestamp: number;
+        };
     };
 }
 
-const DB_NAME = 'avtaleportal-db';
-const DB_VERSION = 1;
+let db: IDBPDatabase<ContractDB>;
 
-class DatabaseService {
-    private db: Promise<IDBPDatabase<AppDBSchema>>;
+export async function initDB() {
+    db = await openDB<ContractDB>('contract-manager', 1, {
+        upgrade(db) {
+            // Store raw CSV data
+            const rawStore = db.createObjectStore('raw-data', {
+                keyPath: 'id'
+            });
+            rawStore.createIndex('by-filename', 'filename');
 
-    constructor() {
-        this.db = this.initDB();
-    }
+            // Store processed contracts
+            const contractStore = db.createObjectStore('contracts', {
+                keyPath: 'id'
+            });
+            contractStore.createIndex('by-avtalekontor', 'avtaleKontor');
+            contractStore.createIndex('by-type', 'type');
+            contractStore.createIndex('by-postal', 'startLocation.postalCode');
 
-    private async initDB() {
-        return openDB<AppDBSchema>(DB_NAME, DB_VERSION, {
-            upgrade(db, oldVersion, newVersion, transaction) {
-                // Create stores if they don't exist
-                if (!db.objectStoreNames.contains('jsonData')) {
-                    const jsonStore = db.createObjectStore('jsonData');
-                    jsonStore.createIndex('by-timestamp', 'timestamp');
-                }
-                if (!db.objectStoreNames.contains('csvFiles')) {
-                    const csvStore = db.createObjectStore('csvFiles');
-                    csvStore.createIndex('by-timestamp', 'timestamp');
-                }
-                if (!db.objectStoreNames.contains('userPreferences')) {
-                    db.createObjectStore('userPreferences');
-                }
-            },
-            blocked() {
-                console.warn('Database upgrade was blocked');
-            },
-            blocking() {
-                console.warn('Database is blocking an upgrade');
-            },
-            terminated() {
-                console.error('Database connection was terminated');
-            }
-        });
-    }
+            // Store JSON structures
+            db.createObjectStore('structures', {
+                keyPath: 'id'
+            });
 
-    // JSON Data operations
-    async saveJSON(key: string, data: TransformedData): Promise<void> {
-        try {
-            const db = await this.db;
-            const jsonData: JSONData = {
-                data,
-                timestamp: Date.now(),
-            };
-            await db.put('jsonData', jsonData, key);
-        } catch (error) {
-            console.error('Error saving JSON data:', error);
-            throw new Error('Failed to save JSON data');
+            // Store location data
+            db.createObjectStore('locations', {
+                keyPath: 'id'
+            });
         }
+    });
+}
+
+// Raw data operations
+export async function storeRawData(filename: string, content: string) {
+    await initDB();
+    return db.add('raw-data', {
+        id: crypto.randomUUID(),
+        filename,
+        content,
+        timestamp: Date.now()
+    });
+}
+
+export async function getRawData(id: string) {
+    await initDB();
+    return db.get('raw-data', id);
+}
+
+export async function listRawData() {
+    await initDB();
+    return db.getAllFromIndex('raw-data', 'by-filename');
+}
+
+// Contract operations
+export async function storeContract(contract: Contract) {
+    await initDB();
+    return db.put('contracts', contract);
+}
+
+export async function storeContracts(contracts: Contract[]) {
+    await initDB();
+    const tx = db.transaction('contracts', 'readwrite');
+    await Promise.all([
+        ...contracts.map(contract => tx.store.put(contract)),
+        tx.done
+    ]);
+}
+
+export async function getContract(id: string) {
+    await initDB();
+    return db.get('contracts', id);
+}
+
+export async function searchContracts(query: {
+    avtaleKontor?: string;
+    type?: string;
+    postalCode?: string;
+}) {
+    await initDB();
+    let contracts = await db.getAll('contracts');
+
+    if (query.avtaleKontor) {
+        contracts = contracts.filter(c => c.avtaleKontor === query.avtaleKontor);
     }
-
-    async getJSON(key: string): Promise<JSONData | undefined> {
-        try {
-            const db = await this.db;
-            return await db.get('jsonData', key);
-        } catch (error) {
-            console.error('Error getting JSON data:', error);
-            return undefined;
-        }
+    if (query.type) {
+        contracts = contracts.filter(c => c.type === query.type);
     }
-
-    // CSV File operations
-    async saveCSVFile(name: string, content: string[][]): Promise<void> {
-        try {
-            const db = await this.db;
-            const csvFile: CSVFile = {
-                name,
-                content,
-                timestamp: Date.now(),
-            };
-            await db.put('csvFiles', csvFile, name);
-        } catch (error) {
-            console.error('Error saving CSV file:', error);
-            throw new Error('Failed to save CSV file');
-        }
-    }
-
-    async getCSVFile(name: string): Promise<CSVFile | undefined> {
-        try {
-            const db = await this.db;
-            return await db.get('csvFiles', name);
-        } catch (error) {
-            console.error('Error getting CSV file:', error);
-            return undefined;
-        }
-    }
-
-    async getAllCSVFiles(): Promise<CSVFile[]> {
-        try {
-            const db = await this.db;
-            return await db.getAll('csvFiles');
-        } catch (error) {
-            console.error('Error getting all CSV files:', error);
-            return [];
-        }
-    }
-
-    // User Preferences operations
-    async savePreferences(key: string, preferences: Partial<UserPreferences>): Promise<void> {
-        try {
-            const db = await this.db;
-            const existing = await db.get('userPreferences', key) || {
-                fieldOrder: [],
-                filters: {},
-                lastView: '',
-            };
-            const updatedPreferences: UserPreferences = {
-                ...existing,
-                ...preferences,
-            };
-            await db.put('userPreferences', updatedPreferences, key);
-        } catch (error) {
-            console.error('Error saving preferences:', error);
-            throw new Error('Failed to save preferences');
-        }
-    }
-
-    async getPreferences(key: string): Promise<UserPreferences | undefined> {
-        try {
-            const db = await this.db;
-            return await db.get('userPreferences', key);
-        } catch (error) {
-            console.error('Error getting preferences:', error);
-            return undefined;
-        }
-    }
-
-    // Cache management
-    async clearCache(): Promise<void> {
-        try {
-            const db = await this.db;
-            await Promise.all([
-                db.clear('jsonData'),
-                db.clear('csvFiles'),
-            ]);
-        } catch (error) {
-            console.error('Error clearing cache:', error);
-            throw new Error('Failed to clear cache');
-        }
-    }
-
-    async clearOldCache(maxAge: number = 7 * 24 * 60 * 60 * 1000): Promise<void> {
-        try {
-            const db = await this.db;
-            const now = Date.now();
-
-            // Use indexes for better performance
-            const jsonTx = db.transaction('jsonData', 'readwrite');
-            const jsonIndex = jsonTx.store.index('by-timestamp');
-            const jsonCursor = await jsonIndex.openCursor();
-
-            while (jsonCursor) {
-                if (now - jsonCursor.value.timestamp > maxAge) {
-                    await jsonCursor.delete();
-                }
-                await jsonCursor.continue();
-            }
-
-            const csvTx = db.transaction('csvFiles', 'readwrite');
-            const csvIndex = csvTx.store.index('by-timestamp');
-            const csvCursor = await csvIndex.openCursor();
-
-            while (csvCursor) {
-                if (now - csvCursor.value.timestamp > maxAge) {
-                    await csvCursor.delete();
-                }
-                await csvCursor.continue();
-            }
-        } catch (error) {
-            console.error('Error clearing old cache:', error);
-            throw new Error('Failed to clear old cache');
-        }
-    }
-
-    // Helper methods
-    private validateCSVContent(content: string[][]): boolean {
-        return Array.isArray(content) && content.every(row => 
-            Array.isArray(row) && row.every(cell => typeof cell === 'string')
+    if (query.postalCode) {
+        contracts = contracts.filter(c => 
+            c.startLocation?.postalCode?.includes(query.postalCode || '')
         );
     }
 
-    private validateJSONData(data: unknown): data is TransformedData {
-        if (!data || typeof data !== 'object') return false;
-        const d = data as TransformedData;
-        return Array.isArray(d.contracts) && d.contracts.every(contract => 
-            typeof contract.id === 'string' &&
-            typeof contract.avtaleKontor === 'string' &&
-            typeof contract.avtaleNavn === 'string'
-        );
-    }
+    return contracts;
 }
 
-// Export a singleton instance
-export const db = new DatabaseService(); 
+// Structure operations
+export async function saveStructure(name: string, structure: any) {
+    await initDB();
+    return db.add('structures', {
+        id: crypto.randomUUID(),
+        name,
+        structure,
+        timestamp: Date.now()
+    });
+}
+
+export async function getStructure(id: string) {
+    await initDB();
+    return db.get('structures', id);
+}
+
+export async function listStructures() {
+    await initDB();
+    return db.getAll('structures');
+}
+
+// Location operations
+export async function saveLocation(contractId: string, coordinate: { øst: number; nord: number }) {
+    await initDB();
+    return db.add('locations', {
+        id: crypto.randomUUID(),
+        contractId,
+        coordinate,
+        timestamp: Date.now()
+    });
+}
+
+export async function getLocation(contractId: string) {
+    await initDB();
+    const locations = await db.getAll('locations');
+    return locations.find(l => l.contractId === contractId);
+}
+
+export async function updateLocation(id: string, coordinate: { øst: number; nord: number }) {
+    await initDB();
+    const location = await db.get('locations', id);
+    if (location) {
+        location.coordinate = coordinate;
+        location.timestamp = Date.now();
+        return db.put('locations', location);
+    }
+} 

@@ -27,6 +27,9 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.development
+.env.test
+.env.production
 
 # vercel
 .vercel
@@ -41,3 +44,22 @@ next-env.d.ts
 /raw/
 /uploads/
 .cursorrules
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# System files
+Thumbs.db
+desktop.ini
+
+# Cursor specific
+.cursor/
+.cursor-cache/

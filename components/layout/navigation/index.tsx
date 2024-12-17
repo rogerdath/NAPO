@@ -2,47 +2,45 @@
 
 import React from "react";
 import Link from "next/link";
-import { FileText, History, Settings, BarChart, Database } from "lucide-react";
+import { FileText, History, BarChart, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/components/theme/language-provider";
+import { t } from "@/app/lib/i18n";
 
 const navigation = [
     {
         href: "/dashboard",
         icon: BarChart,
-        label: "Dashboard",
+        labelKey: "navigation.dashboard",
     },
     {
         href: "/transform",
         icon: FileText,
-        label: "Transform",
+        labelKey: "navigation.transform",
     },
     {
         href: "/avtaler",
         icon: Database,
-        label: "Contract Manager",
+        labelKey: "navigation.contractManager",
     },
     {
         href: "/history",
         icon: History,
-        label: "History",
-    },
-    {
-        href: "/settings",
-        icon: Settings,
-        label: "Settings",
+        labelKey: "navigation.history",
     },
 ];
 
 export function Navigation() {
     const pathname = usePathname();
+    const { language } = useLanguage();
 
     return (
         <aside className="fixed inset-y-0 left-0 w-64 bg-zinc-900 border-r border-indigo-500/20">
             <div className="flex h-14 items-center border-b border-indigo-500/20 px-6">
                 <Link className="flex items-center space-x-2" href="/">
                     <span className="font-bold text-xl bg-gradient-to-r from-indigo-500 to-indigo-300 bg-clip-text text-transparent">
-                        CSV Transform
+                        Avtaler
                     </span>
                 </Link>
             </div>
@@ -62,7 +60,7 @@ export function Navigation() {
                             )}
                         >
                             <item.icon className={cn("h-5 w-5", isActive ? "text-indigo-500" : "text-zinc-400")} />
-                            <span>{item.label}</span>
+                            <span>{t(item.labelKey, language)}</span>
                         </Link>
                     );
                 })}
