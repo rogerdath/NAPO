@@ -1,16 +1,60 @@
 'use client';
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Contract } from '@/types';
+import { Contract, Area, ContractType, Resource, Location, ContractContent, Relation, DataFile } from '@/types';
 
 interface ContractDB extends DBSchema {
-    'raw-data': {
+    'areas': {
         key: string;
-        value: {
-            id: string;
-            content: string;
-            filename: string;
-            timestamp: number;
+        value: Area;
+        indexes: {
+            'by-omradekode': string;
+            'by-avtalekontor': string;
+        };
+    };
+    'contract-types': {
+        key: string;
+        value: ContractType;
+        indexes: {
+            'by-omradekode': string;
+        };
+    };
+    'resources': {
+        key: string;
+        value: Resource;
+        indexes: {
+            'by-omradekode': string;
+            'by-avtalekontor': string;
+        };
+    };
+    'locations': {
+        key: string;
+        value: Location;
+        indexes: {
+            'by-omradekode': string;
+        };
+    };
+    'contract-contents': {
+        key: string;
+        value: ContractContent;
+        indexes: {
+            'by-omradekode': string;
+        };
+    };
+    'relations': {
+        key: string;
+        value: Relation;
+        indexes: {
+            'by-source': [string, string];
+            'by-target': [string, string];
+        };
+    };
+    'data-files': {
+        key: string;
+        value: DataFile;
+        indexes: {
+            'by-type': string;
+            'by-filename': string;
         };
     };
     'contracts': {
@@ -19,80 +63,296 @@ interface ContractDB extends DBSchema {
         indexes: {
             'by-avtalekontor': string;
             'by-type': string;
-            'by-postal': string;
-        };
-    };
-    'structures': {
-        key: string;
-        value: {
-            id: string;
-            name: string;
-            structure: any;
-            timestamp: number;
-        };
-    };
-    'locations': {
-        key: string;
-        value: {
-            id: string;
-            contractId: string;
-            coordinate: { øst: number; nord: number };
-            timestamp: number;
+            'by-postalcode': string;
         };
     };
 }
 
 let db: IDBPDatabase<ContractDB>;
+let dbInitPromise: Promise<void> | null = null;
 
 export async function initDB() {
-    db = await openDB<ContractDB>('contract-manager', 1, {
-        upgrade(db) {
-            // Store raw CSV data
-            const rawStore = db.createObjectStore('raw-data', {
-                keyPath: 'id'
-            });
-            rawStore.createIndex('by-filename', 'filename');
+    if (dbInitPromise) return dbInitPromise;
 
-            // Store processed contracts
-            const contractStore = db.createObjectStore('contracts', {
-                keyPath: 'id'
-            });
-            contractStore.createIndex('by-avtalekontor', 'avtaleKontor');
-            contractStore.createIndex('by-type', 'type');
-            contractStore.createIndex('by-postal', 'startLocation.postalCode');
+    dbInitPromise = (async () => {
+        try {
+            db = await openDB<ContractDB>('contract-manager', 2, {
+                upgrade(db, oldVersion, newVersion, transaction) {
+                    // Delete old stores if they exist
+                    const storeNames = db.objectStoreNames;
+                    for (const storeName of storeNames) {
+                        db.deleteObjectStore(storeName);
+                    }
 
-            // Store JSON structures
-            db.createObjectStore('structures', {
-                keyPath: 'id'
+                    console.log('Creating stores...');
+
+                    // Areas store
+                    const areaStore = db.createObjectStore('areas', {
+                        keyPath: 'id'
+                    });
+                    areaStore.createIndex('by-omradekode', 'omradeKode');
+                    areaStore.createIndex('by-avtalekontor', 'avtaleKontor');
+
+                    // Contract types store
+                    const typeStore = db.createObjectStore('contract-types', {
+                        keyPath: 'id'
+                    });
+                    typeStore.createIndex('by-omradekode', 'omradeKode');
+
+                    // Resources store
+                    const resourceStore = db.createObjectStore('resources', {
+                        keyPath: 'id'
+                    });
+                    resourceStore.createIndex('by-omradekode', 'avtaleOmradeKode');
+                    resourceStore.createIndex('by-avtalekontor', 'avtaleKontor');
+
+                    // Locations store
+                    const locationStore = db.createObjectStore('locations', {
+                        keyPath: 'id'
+                    });
+                    locationStore.createIndex('by-omradekode', 'omradeKode');
+
+                    // Contract contents store
+                    const contentStore = db.createObjectStore('contract-contents', {
+                        keyPath: 'id'
+                    });
+                    contentStore.createIndex('by-omradekode', 'omradeKode');
+
+                    // Relations store
+                    const relationStore = db.createObjectStore('relations', {
+                        keyPath: 'id'
+                    });
+                    relationStore.createIndex('by-source', ['sourceType', 'sourceId']);
+                    relationStore.createIndex('by-target', ['targetType', 'targetId']);
+
+                    // Data files store
+                    const fileStore = db.createObjectStore('data-files', {
+                        keyPath: 'id'
+                    });
+                    fileStore.createIndex('by-type', 'type');
+                    fileStore.createIndex('by-filename', 'filename');
+
+                    // Contracts store
+                    const contractStore = db.createObjectStore('contracts', {
+                        keyPath: 'id'
+                    });
+                    contractStore.createIndex('by-avtalekontor', 'avtaleKontor');
+                    contractStore.createIndex('by-type', 'type');
+                    contractStore.createIndex('by-postalcode', 'startLocation.postalCode');
+
+                    console.log('Stores created successfully');
+                },
+                blocked() {
+                    console.log('Database blocked');
+                },
+                blocking() {
+                    console.log('Database blocking');
+                },
+                terminated() {
+                    console.log('Database terminated');
+                }
             });
 
-            // Store location data
-            db.createObjectStore('locations', {
-                keyPath: 'id'
-            });
+            // Verify stores were created
+            const storeNames = Array.from(db.objectStoreNames);
+            console.log('Created stores:', storeNames);
+
+            if (!storeNames.includes('areas') || 
+                !storeNames.includes('contract-types') || 
+                !storeNames.includes('resources') || 
+                !storeNames.includes('locations') || 
+                !storeNames.includes('contract-contents') || 
+                !storeNames.includes('relations') || 
+                !storeNames.includes('data-files') || 
+                !storeNames.includes('contracts')) {
+                throw new Error('Failed to create all required stores');
+            }
+        } catch (err) {
+            console.error('Failed to initialize database:', err);
+            dbInitPromise = null;
+            throw err;
         }
-    });
+    })();
+
+    return dbInitPromise;
 }
 
-// Raw data operations
-export async function storeRawData(filename: string, content: string) {
+// Area operations
+export async function storeArea(area: Area) {
     await initDB();
-    return db.add('raw-data', {
-        id: crypto.randomUUID(),
-        filename,
-        content,
-        timestamp: Date.now()
-    });
+    return db.put('areas', area);
 }
 
-export async function getRawData(id: string) {
+export async function storeAreas(areas: Area[]) {
     await initDB();
-    return db.get('raw-data', id);
+    const tx = db.transaction('areas', 'readwrite');
+    await Promise.all([
+        ...areas.map(area => tx.store.put(area)),
+        tx.done
+    ]);
 }
 
-export async function listRawData() {
+export async function getAreaByOmradeKode(omradeKode: string) {
     await initDB();
-    return db.getAllFromIndex('raw-data', 'by-filename');
+    return db.getFromIndex('areas', 'by-omradekode', omradeKode);
+}
+
+// Contract type operations
+export async function storeContractType(type: ContractType) {
+    await initDB();
+    return db.put('contract-types', type);
+}
+
+export async function storeContractTypes(types: ContractType[]) {
+    await initDB();
+    const tx = db.transaction('contract-types', 'readwrite');
+    await Promise.all([
+        ...types.map(type => tx.store.put(type)),
+        tx.done
+    ]);
+}
+
+export async function getContractTypeByOmradeKode(omradeKode: string) {
+    await initDB();
+    return db.getFromIndex('contract-types', 'by-omradekode', omradeKode);
+}
+
+// Resource operations
+export async function storeResource(resource: Resource) {
+    await initDB();
+    return db.put('resources', resource);
+}
+
+export async function storeResources(resources: Resource[]) {
+    await initDB();
+    const tx = db.transaction('resources', 'readwrite');
+    await Promise.all([
+        ...resources.map(resource => tx.store.put(resource)),
+        tx.done
+    ]);
+}
+
+export async function getResourcesByOmradeKode(omradeKode: string) {
+    await initDB();
+    return db.getAllFromIndex('resources', 'by-omradekode', omradeKode);
+}
+
+// Location operations
+export async function storeLocation(location: Location) {
+    await initDB();
+    return db.put('locations', location);
+}
+
+export async function storeLocations(locations: Location[]) {
+    await initDB();
+    const tx = db.transaction('locations', 'readwrite');
+    await Promise.all([
+        ...locations.map(location => tx.store.put(location)),
+        tx.done
+    ]);
+}
+
+export async function getLocationByOmradeKode(omradeKode: string) {
+    await initDB();
+    return db.getFromIndex('locations', 'by-omradekode', omradeKode);
+}
+
+// Contract content operations
+export async function storeContractContent(content: ContractContent) {
+    await initDB();
+    return db.put('contract-contents', content);
+}
+
+export async function storeContractContents(contents: ContractContent[]) {
+    await initDB();
+    const tx = db.transaction('contract-contents', 'readwrite');
+    await Promise.all([
+        ...contents.map(content => tx.store.put(content)),
+        tx.done
+    ]);
+}
+
+export async function getContractContentByOmradeKode(omradeKode: string) {
+    await initDB();
+    return db.getFromIndex('contract-contents', 'by-omradekode', omradeKode);
+}
+
+// Relation operations
+export async function storeRelation(relation: Relation) {
+    await initDB();
+    return db.put('relations', relation);
+}
+
+export async function storeRelations(relations: Relation[]) {
+    await initDB();
+    const tx = db.transaction('relations', 'readwrite');
+    await Promise.all([
+        ...relations.map(relation => tx.store.put(relation)),
+        tx.done
+    ]);
+}
+
+export async function getRelationsBySource(sourceType: string, sourceId: string) {
+    await initDB();
+    return db.getAllFromIndex('relations', 'by-source', [sourceType, sourceId]);
+}
+
+export async function getRelationsByTarget(targetType: string, targetId: string) {
+    await initDB();
+    return db.getAllFromIndex('relations', 'by-target', [targetType, targetId]);
+}
+
+// Data file operations
+export async function storeDataFile(file: DataFile) {
+    await initDB();
+    return db.put('data-files', file);
+}
+
+export async function getDataFilesByType(type: string) {
+    await initDB();
+    return db.getAllFromIndex('data-files', 'by-type', type);
+}
+
+export async function clearDatabase() {
+    await initDB();
+    const tx = db.transaction(
+        ['areas', 'contract-types', 'resources', 'locations', 'contract-contents', 'relations', 'data-files'],
+        'readwrite'
+    );
+    await Promise.all([
+        tx.objectStore('areas').clear(),
+        tx.objectStore('contract-types').clear(),
+        tx.objectStore('resources').clear(),
+        tx.objectStore('locations').clear(),
+        tx.objectStore('contract-contents').clear(),
+        tx.objectStore('relations').clear(),
+        tx.objectStore('data-files').clear(),
+        tx.done
+    ]);
+}
+
+export async function getDatabaseInfo() {
+    await initDB();
+    const areaCount = (await db.getAll('areas')).length;
+    const typeCount = (await db.getAll('contract-types')).length;
+    const resourceCount = (await db.getAll('resources')).length;
+    const locationCount = (await db.getAll('locations')).length;
+    const contentCount = (await db.getAll('contract-contents')).length;
+    const relationCount = (await db.getAll('relations')).length;
+    const fileCount = (await db.getAll('data-files')).length;
+
+    return {
+        areaCount,
+        typeCount,
+        resourceCount,
+        locationCount,
+        contentCount,
+        relationCount,
+        fileCount,
+        databaseName: db.name,
+        version: db.version,
+        objectStores: db.objectStoreNames,
+    };
 }
 
 // Contract operations
@@ -136,52 +396,4 @@ export async function searchContracts(query: {
     }
 
     return contracts;
-}
-
-// Structure operations
-export async function saveStructure(name: string, structure: any) {
-    await initDB();
-    return db.add('structures', {
-        id: crypto.randomUUID(),
-        name,
-        structure,
-        timestamp: Date.now()
-    });
-}
-
-export async function getStructure(id: string) {
-    await initDB();
-    return db.get('structures', id);
-}
-
-export async function listStructures() {
-    await initDB();
-    return db.getAll('structures');
-}
-
-// Location operations
-export async function saveLocation(contractId: string, coordinate: { øst: number; nord: number }) {
-    await initDB();
-    return db.add('locations', {
-        id: crypto.randomUUID(),
-        contractId,
-        coordinate,
-        timestamp: Date.now()
-    });
-}
-
-export async function getLocation(contractId: string) {
-    await initDB();
-    const locations = await db.getAll('locations');
-    return locations.find(l => l.contractId === contractId);
-}
-
-export async function updateLocation(id: string, coordinate: { øst: number; nord: number }) {
-    await initDB();
-    const location = await db.get('locations', id);
-    if (location) {
-        location.coordinate = coordinate;
-        location.timestamp = Date.now();
-        return db.put('locations', location);
-    }
 } 

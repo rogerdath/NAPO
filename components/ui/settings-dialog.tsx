@@ -1,4 +1,4 @@
-import { Settings } from 'lucide-react';
+import { Settings, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -17,6 +17,8 @@ import {
 import { useTheme } from 'next-themes';
 import { t } from '@/app/lib/i18n';
 import { useLanguage } from '@/components/theme/language-provider';
+import { clearDatabase } from '@/app/lib/db';
+import { info } from '@/app/lib/client-logger';
 
 const languages = [
     { code: 'en', name: 'English' },
@@ -32,6 +34,14 @@ const themes = [
 export function SettingsDialog() {
     const { language, setLanguage } = useLanguage();
     const { theme, setTheme } = useTheme();
+
+    const handleClearDatabase = async () => {
+        if (confirm(t('settings.confirmClearData', language))) {
+            await clearDatabase();
+            await info('Settings', 'Database cleared');
+            window.location.reload(); // Reload to refresh data
+        }
+    };
 
     return (
         <Dialog>
@@ -84,6 +94,22 @@ export function SettingsDialog() {
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                            {t('settings.data', language)}
+                        </label>
+                        <Button 
+                            variant="destructive" 
+                            className="w-full"
+                            onClick={handleClearDatabase}
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {t('settings.clearData', language)}
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                            {t('settings.clearDataDescription', language)}
+                        </p>
                     </div>
                 </div>
             </DialogContent>

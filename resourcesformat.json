@@ -1,0 +1,340 @@
+{
+  "contracts": [
+    {
+      "id": "small-car-stabekk",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 29.24,
+        "costPerWaitedMinute": 8.06,
+        "startupCost": 0,
+        "minimumCost": 226.94
+      },
+      "nodes": [
+        {
+          "id": "stabekk",
+          "coordinate": {
+            "øst": 254435.60,
+            "nord": 6649376.97
+          }
+        }
+      ]
+    },
+    {
+      "id": "large-car-stabekk",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 31.25,
+        "costPerWaitedMinute": 8.06,
+        "startupCost": 353.04,
+        "minimumCost": 242.06
+      },
+      "nodes": [
+        {
+          "id": "stabekk",
+          "coordinate": {
+            "øst": 254435.60,
+            "nord": 6649376.97
+          }
+        }
+      ]
+    },
+    {
+      "id": "small-car-ringvoll",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 29.24,
+        "costPerWaitedMinute": 8.06,
+        "startupCost": 0,
+        "minimumCost": 226.94
+      },
+      "nodes": [
+        {
+          "id": "ringvoll",
+          "coordinate": {
+            "øst": 247095.33,
+            "nord": 6649823.90
+          }
+        }
+      ]
+    },
+    {
+      "id": "large-car-ringvoll",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 31.25,
+        "costPerWaitedMinute": 8.06,
+        "startupCost": 353.04,
+        "minimumCost": 242.06
+      },
+      "nodes": [
+        {
+          "id": "ringvoll",
+          "coordinate": {
+            "øst": 247095.33,
+            "nord": 6649823.90
+          }
+        }
+      ]
+    },
+    {
+      "id": "small-car-lommedalen",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 29.24,
+        "costPerWaitedMinute": 8.06,
+        "startupCost": 0,
+        "minimumCost": 226.94
+      },
+      "nodes": [
+        {
+          "id": "lommedalen",
+          "coordinate": {
+            "øst": 248185.85,
+            "nord": 6655034.03
+          }
+        }
+      ]
+    },
+    {
+      "id": "large-car-lommedalen",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 31.25,
+        "costPerWaitedMinute": 8.06,
+        "startupCost": 353.04,
+        "minimumCost": 242.06
+      },
+      "nodes": [
+        {
+          "id": "lommedalen",
+          "coordinate": {
+            "øst": 248185.85,
+            "nord": 6655034.03
+          }
+        }
+      ]
+    },
+    {
+      "id": "bergen-direct",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 29.24,
+        "costPerWaitedMinute": 0.0,
+        "startupCost": 0,
+        "minimumCost": 226.94
+      }
+    },
+    {
+      "id": "bergen-direct-maxi",
+      "hasPaidReturn": false,
+      "cost": {
+        "costPerKm": 31.25,
+        "costPerWaitedMinute": 0.0,
+        "startupCost": 353.04,
+        "minimumCost": 242.06
+      }
+    }
+  ],
+  "taxis": [
+    {
+      "id": "normal-stabekk",
+      "contractId": "small-car-stabekk",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "luggagespace", "count": 2 }
+      ],
+      "copies": 40
+    },
+    {
+      "id": "maxi-stabekk",
+      "contractId": "large-car-stabekk",
+      "capacities": [
+        { "type": "Seats", "count": 12 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 3 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 10
+    },
+    {
+      "id": "wheelchair-stabekk",
+      "contractId": "large-car-stabekk",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "Wheelchair", "count": 1 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 10
+    },
+    {
+      "id": "electric-wheelchair-stabekk",
+      "contractId": "large-car-stabekk",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "ElectricWheelchair", "count": 1 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 2
+    },
+    {
+      "id": "normal-ringvoll",
+      "contractId": "small-car-ringvoll",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "luggagespace", "count": 2 }
+      ],
+      "copies": 10
+    },
+    {
+      "id": "maxi-ringvoll",
+      "contractId": "large-car-ringvoll",
+      "capacities": [
+        { "type": "Seats", "count": 12 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 3 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 1
+    },
+    {
+      "id": "wheelchair-ringvoll",
+      "contractId": "large-car-ringvoll",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "Wheelchair", "count": 1 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 2
+    },
+    {
+      "id": "normal-lommedalen",
+      "contractId": "small-car-lommedalen",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "luggagespace", "count": 2 }
+      ],
+      "copies": 10
+    },
+    {
+      "id": "maxi-lommedalen",
+      "contractId": "large-car-lommedalen",
+      "capacities": [
+        { "type": "Seats", "count": 12 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 3 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 1
+    },
+    {
+      "id": "wheelchair-lommedalen",
+      "contractId": "large-car-lommedalen",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "Wheelchair", "count": 1 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 2
+    },
+    {
+      "id": "normal",
+      "contractId": "bergen-direct",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "luggagespace", "count": 2 }
+      ],
+      "copies": 80
+    },
+    {
+      "id": "maxi",
+      "contractId": "bergen-direct-maxi",
+      "capacities": [
+        { "type": "Seats", "count": 12 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 3 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 10
+    },
+    {
+      "id": "wheelchair",
+      "contractId": "bergen-direct-maxi",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "Wheelchair", "count": 1 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 40
+    },
+    {
+      "id": "electric-wheelchair",
+      "contractId": "bergen-direct-maxi",
+      "capacities": [
+        { "type": "Seats", "count": 3 },
+        { "type": "Frontseat", "count": 1 },
+        { "type": "BackseatRows", "count": 1 },
+        { "type": "ElectricWheelchair", "count": 1 },
+        { "type": "LuggageSpace", "count": 4 }
+      ],
+      "copies": 10
+    }
+  ],
+  "districts": [
+    {
+      "Avtalekontor": "Bergen Central",
+      "AvtaleNavn": "Bergen By Taxi",
+      "Avtaletransportor": "BergenTaxi",
+      "OmradeKode": "BGN001",
+      "Henteomrade": ["5001", "5002"],
+      "Leveringomrarde": ["5003", "5004"],
+      "Kontrakttype": "KI",
+      "AndelKK": 45,
+      "AntallLoyver": 10,
+      "TransportType": "Bil",
+      "Behov": "Henting dagtid",
+      "Kmpris": 29.5,
+      "MinuttPris": 8.0,
+      "Minstepris": 225.0,
+      "Starttakst": 50.0,
+      "Tillegg": 10.0,
+      "Utlegg": 0.0
+    },
+    {
+      "Avtalekontor": "Oslo City",
+      "AvtaleNavn": "Oslo By Taxi",
+      "Avtaletransportor": "OsloTaxi",
+      "OmradeKode": "OSL002",
+      "Henteomrade": ["0101", "0102"],
+      "Leveringomrarde": ["0103", "0104"],
+      "Kontrakttype": "KK",
+      "AndelKK": 60,
+      "AntallLoyver": 15,
+      "TransportType": "Bil",
+      "Behov": "Henting helg",
+      "Kmpris": 30.0,
+      "MinuttPris": 9.0,
+      "Minstepris": 250.0,
+      "Starttakst": 60.0,
+      "Tillegg": 15.0,
+      "Utlegg": 0.0
+    }
+  ]
+}

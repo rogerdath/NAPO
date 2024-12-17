@@ -10,44 +10,52 @@ const OUTPUT_DIR = path.join(process.cwd(), 'output');
 
 export async function loadContracts(): Promise<Contract[]> {
     try {
-        // Ensure output directory exists
-        try {
-            await fs.access(OUTPUT_DIR);
-        } catch {
-            await fs.mkdir(OUTPUT_DIR, { recursive: true });
-        }
+        // Read and process CSV files
+        const csvFiles = {
+            avtaleinnhold: await fs.readFile(path.join(process.cwd(), 'uploads', 'avtaleinnhold.csv'), 'utf8'),
+            omrade: await fs.readFile(path.join(process.cwd(), 'uploads', 'omrade.csv'), 'utf8'),
+            startsted: await fs.readFile(path.join(process.cwd(), 'uploads', 'startsted.csv'), 'utf8')
+        };
 
-        // Find the most recent JSON file
-        const files = await fs.readdir(OUTPUT_DIR);
-        const jsonFiles = files.filter(f => f.endsWith('.json'));
+        // Process the main contract data
+        const contracts = processCSVData(csvFiles.avtaleinnhold).map(row => ({
+            id: row.OMRADEKODE,
+            avtaleKontor: row.AVTALEKONTOR,
+            avtaleNavn: row.AVTALENAVN,
+            type: row.TYPE,
+            validTransport: row.GYLDIGTRANSPORT,
+            validNeeds: row.GYLDIGBEHOV ? row.GYLDIGBEHOV.split(';').map((n: string) => n.trim()) : [],
+            cost: {
+                costPerKm: parseFloat(row.KMPRIS) || 0,
+                minimumCost: parseFloat(row.MINPRIS) || 0,
+                startupCost: parseFloat(row.STARTTAKST) || 0
+            }
+        }));
+
+        // Enrich with area data
+        const areaData = processCSVData(csvFiles.omrade);
+        const startData = processCSVData(csvFiles.startsted);
+
+        // Merge data
+        const enrichedContracts = contracts.map(contract => {
+            const areaInfo = areaData.find(a => a.OMRADEKODE === contract.id);
+            const startInfo = startData.find(s => s.OMRADEKODE === contract.id);
+
+            return {
+                ...contract,
+                startLocation: {
+                    postalCode: startInfo?.STARTPOSTNR || '',
+                    city: startInfo?.STARTPOSTSTED || '',
+                    municipality: startInfo?.KOMMUNE || areaInfo?.KOMMUNE || ''
+                }
+            };
+        });
         
-        if (jsonFiles.length === 0) {
-            return [];
-        }
-
-        const fileStats = await Promise.all(
-            jsonFiles.map(async file => ({
-                name: file,
-                time: (await fs.stat(path.join(OUTPUT_DIR, file))).mtime.getTime()
-            }))
-        );
-
-        const mostRecentFile = fileStats.reduce((prev, curr) => 
-            prev.time > curr.time ? prev : curr
-        );
-
-        const content = await fs.readFile(
-            path.join(OUTPUT_DIR, mostRecentFile.name),
-            'utf8'
-        );
-
-        const contracts = JSON.parse(content);
-        
-        await info('ContractActions', 'Contracts loaded', {
-            count: contracts.length
+        await info('ContractActions', 'Contracts processed', {
+            count: enrichedContracts.length
         });
 
-        return contracts;
+        return enrichedContracts;
     } catch (err) {
         await error('ContractActions', 'Failed to load contracts', err);
         throw err;

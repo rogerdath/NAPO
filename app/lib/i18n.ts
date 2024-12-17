@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type Language = 'en' | 'no';
+export type Language = 'en' | 'nb';
 
 interface I18nStore {
     language: Language;
@@ -31,6 +31,10 @@ const translations = {
             delete: 'Delete',
             view: 'View',
             close: 'Close',
+            all: 'All',
+            total: 'Total',
+            copy: 'Copy',
+            upload: 'Upload',
         },
         navigation: {
             transform: 'Transform',
@@ -59,6 +63,7 @@ const translations = {
             uploadError: 'Failed to upload files. Please try again.',
             processing: 'Processing files...',
             validationError: 'Validation error in file: {filename}',
+            relationsTitle: 'Data Relations',
         },
         contracts: {
             title: 'Contract Manager',
@@ -83,6 +88,14 @@ const translations = {
             filterByAvtaleKontor: 'Filter by AvtaleKontor',
             filterByPostalCode: 'Filter by Postal Code',
             noResults: 'No contracts found',
+            filtersApplied: 'Filters applied successfully',
+            selectContractToEdit: 'Select a contract to edit',
+            editContract: 'Edit Contract',
+            jsonStructure: 'JSON Structure',
+            saveStructure: 'Save Structure',
+            initializing: 'Initializing contract database...',
+            loadingContracts: 'Loading contracts...',
+            databaseError: 'Error initializing database',
         },
         history: {
             title: 'History',
@@ -106,6 +119,15 @@ const translations = {
             invalidValue: 'Invalid value',
             networkError: 'Network error occurred',
             unexpectedError: 'An unexpected error occurred',
+            copyFailed: 'Failed to copy to clipboard',
+            noData: 'No data available',
+            filterError: 'Error applying filters',
+        },
+        settings: {
+            data: 'Data Management',
+            clearData: 'Clear Local Data',
+            clearDataDescription: 'This will clear all locally stored data. You will need to reload contracts from CSV files.',
+            confirmClearData: 'Are you sure you want to clear all local data? This cannot be undone.',
         },
     },
     no: {
@@ -126,6 +148,10 @@ const translations = {
             delete: 'Slett',
             view: 'Vis',
             close: 'Lukk',
+            all: 'Alle',
+            total: 'Totalt',
+            copy: 'Kopier',
+            upload: 'Last opp',
         },
         navigation: {
             transform: 'Transformer',
@@ -154,6 +180,7 @@ const translations = {
             uploadError: 'Kunne ikke laste opp filer. Vennligst prøv igjen.',
             processing: 'Behandler filer...',
             validationError: 'Valideringsfeil i fil: {filename}',
+            relationsTitle: 'Datarelasjoner',
         },
         contracts: {
             title: 'Avtalehåndtering',
@@ -178,6 +205,14 @@ const translations = {
             filterByAvtaleKontor: 'Filtrer etter AvtaleKontor',
             filterByPostalCode: 'Filtrer etter postnummer',
             noResults: 'Ingen avtaler funnet',
+            filtersApplied: 'Filtre anvendt',
+            selectContractToEdit: 'Velg en avtale å redigere',
+            editContract: 'Rediger avtale',
+            jsonStructure: 'JSON-struktur',
+            saveStructure: 'Lagre struktur',
+            initializing: 'Initialiserer avtaledatabase...',
+            loadingContracts: 'Laster avtaler...',
+            databaseError: 'Feil ved initialisering av database',
         },
         history: {
             title: 'Historie',
@@ -201,13 +236,22 @@ const translations = {
             invalidValue: 'Ugyldig verdi',
             networkError: 'Nettverksfeil oppstod',
             unexpectedError: 'En uventet feil oppstod',
+            copyFailed: 'Kunne ikke kopiere til utklippstavlen',
+            noData: 'Ingen data tilgjengelig',
+            filterError: 'Feil ved anvendelse av filtre',
+        },
+        settings: {
+            data: 'Databehandling',
+            clearData: 'Slett lokale data',
+            clearDataDescription: 'Dette vil slette alle lokalt lagrede data. Du må laste inn kontrakter fra CSV-filer på nytt.',
+            confirmClearData: 'Er du sikker på at du vil slette alle lokale data? Dette kan ikke angres.',
         },
     },
 } as const;
 
-export function t(key: string, language: Language = 'en', params?: Record<string, string | number>): string {
+export function t(key: string, language: Language | undefined = 'en', params?: Record<string, string | number>): string {
     const keys = key.split('.');
-    let current: any = translations[language];
+    let current: any = translations[language || 'en'];
     
     for (const k of keys) {
         if (current[k] === undefined) {

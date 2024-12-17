@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { Contract } from '@/types';
-import { storeContracts } from '@/app/lib/db';
+import { storeContracts, initDB } from '@/app/lib/db';
 import { info, error } from '@/app/lib/client-logger';
 
 interface ContractStorageProps {
@@ -13,7 +13,10 @@ export function ContractStorage({ initialContracts }: ContractStorageProps) {
     useEffect(() => {
         const syncContracts = async () => {
             try {
-                // Store the contracts from the file system into IndexedDB
+                // Initialize IndexedDB
+                await initDB();
+                
+                // Store the contracts from the server into IndexedDB
                 await storeContracts(initialContracts);
                 
                 await info('ContractStorage', 'Contracts synced to IndexedDB', {
@@ -24,7 +27,7 @@ export function ContractStorage({ initialContracts }: ContractStorageProps) {
             }
         };
 
-        if (initialContracts.length > 0) {
+        if (initialContracts && initialContracts.length > 0) {
             syncContracts();
         }
     }, [initialContracts]);

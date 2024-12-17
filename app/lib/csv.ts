@@ -1,14 +1,13 @@
 import { parse } from 'papaparse';
-import { Contract } from '@/types';
 import { error } from './logger';
 
-export function processCSVData(csvContent: string): Contract[] {
+export function processCSVData(csvContent: string): any[] {
     try {
         const { data, errors } = parse(csvContent, {
             header: true,
             skipEmptyLines: true,
             transformHeader: (header) => {
-                // Clean up header names
+                // Clean up header names and preserve original casing
                 return header.trim().replace(/\r/g, '');
             }
         });
@@ -18,34 +17,12 @@ export function processCSVData(csvContent: string): Contract[] {
         }
 
         return data.map((row: any) => {
-            const contract: Contract = {
-                id: row.ID || crypto.randomUUID(),
-                avtaleKontor: row.AVTALEKONTOR || '',
-                avtaleNavn: row.AVTALENAVN || '',
-                type: row.TYPE || '',
-                validTransport: row.VALIDTRANSPORT || '',
-                validNeeds: (row.VALIDNEEDS || '').split(',').map((n: string) => n.trim()).filter(Boolean),
-                cost: {
-                    costPerKm: parseFloat(row.COSTKM) || 0,
-                    minimumCost: parseFloat(row.MINCOST) || 0,
-                    startupCost: parseFloat(row.STARTUPCOST) || 0
-                },
-                startLocation: {
-                    postalCode: row.POSTALCODE || '',
-                    city: row.CITY || '',
-                    municipality: row.MUNICIPALITY || ''
-                }
-            };
-
-            // Add coordinate if available
-            if (row.COORDINATE_OST && row.COORDINATE_NORD) {
-                contract.coordinate = {
-                    øst: parseFloat(row.COORDINATE_OST),
-                    nord: parseFloat(row.COORDINATE_NORD)
-                };
-            }
-
-            return contract;
+            // Keep original field names from CSV
+            const processedRow: any = {};
+            Object.entries(row).forEach(([key, value]) => {
+                processedRow[key] = typeof value === 'string' ? value.trim() : value;
+            });
+            return processedRow;
         });
     } catch (err) {
         error('CSV Processing', 'Failed to process CSV data', err);

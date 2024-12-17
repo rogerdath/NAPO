@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { serverError } from '@/app/lib/logger';
+import { error } from '@/app/lib/logger';
 
 export default function ErrorBoundary({
-    error,
+    error: err,
     reset,
 }: {
     error: Error & { digest?: string };
@@ -13,17 +13,17 @@ export default function ErrorBoundary({
 }) {
     useEffect(() => {
         // Log the error
-        serverError(error);
-    }, [error]);
+        error('ErrorBoundary', 'Application error', err);
+    }, [err]);
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-background">
             <div className="text-center space-y-4">
-                <h2 className="text-2xl font-bold text-red-500">Something went wrong!</h2>
+                <h2 className="text-2xl font-bold text-destructive">Something went wrong!</h2>
                 <div className="text-muted-foreground">
                     <p>An error occurred while processing your request.</p>
-                    {error.digest && (
-                        <p className="text-sm mt-2">Error Reference: {error.digest}</p>
+                    {err.digest && (
+                        <p className="text-sm mt-2">Error Reference: {err.digest}</p>
                     )}
                 </div>
                 <div className="flex justify-center gap-4">
