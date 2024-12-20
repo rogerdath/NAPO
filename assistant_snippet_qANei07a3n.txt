@@ -1,0 +1,9 @@
+1|frontend/src/
+2|├── app/
+3|│   ├── layout.tsx      # Root layout med providers
+4|│   ├── page.tsx        # Redirect til dashboard
+5|│   └── dashboard/      # Dashboard routes
+6|│       ├── layout.tsx  # Dashboard layout med navigasjon
+7|│       └── page.tsx    # Dashboard hovedside
+8|└── lib/
+9|    └── utils.ts        # Utility funksjoner 
