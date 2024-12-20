@@ -6,6 +6,14 @@ node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
 
 # testing
 /coverage
